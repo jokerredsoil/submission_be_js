@@ -3,11 +3,28 @@ const books = require('./books');
 
 // Menambahkan buku
 const addBookHandler = (request, h) => {
-    const { name, year, author, summary, publisher, pageCount, readPage, reading } = request.payload;
+    const {
+        name,
+        year,
+        author,
+        summary,
+        publisher,
+        pageCount,
+        readPage,
+        reading = false
+    } = request.payload;
 
     if (!name) {
         return h.response({ status: 'fail', message: 'Gagal menambahkan buku. Mohon isi nama buku' }).code(400);
     }
+
+    if (readPage < 0 || pageCount < 0) {
+        return h.response({
+            status: 'fail',
+            message: 'tidak bisa memperbarui buku. readPage dan pageCount tidak boleh negatif'
+        }).code(400);
+    }
+
     if (readPage > pageCount) {
         return h.response({ status: 'fail', message: 'Gagal menambahkan buku. readPage tidak boleh lebih besar dari pageCount' }).code(400);
     }
@@ -19,17 +36,37 @@ const addBookHandler = (request, h) => {
 
     const newBook = { id, name, year, author, summary, publisher, pageCount, readPage, finished, reading, insertedAt, updatedAt };
     books.push(newBook);
-
+    console.log("Payload diterima:", request.payload);
     return h.response({ status: 'success', message: 'Buku berhasil ditambahkan', data: { bookId: id } }).code(201);
 };
 
 // Mendapatkan daftar semua buku
-const getAllBooksHandler = () => ({
-    status: 'success',
-    data: {
-        books: books.map(({ id, name, publisher }) => ({ id, name, publisher }))
+const getAllBooksHandler = (request, H) => {
+    let filteredBooks = books;
+
+    if (request.query.reading !== undefined) {
+        const isReading = request.query.reading === '1';
+        filteredBooks = filteredBooks.filter(book => book.reading === isReading);
     }
-});
+
+    if (request.query.finished !== undefined) {
+        const isFinished = request.query.finished === '1';
+        filteredBooks = filteredBooks.filter(book => book.finished === isFinished);
+    }
+
+    if (request.query.name) {
+        filteredBooks = filteredBooks.filter(book =>
+            book.name.toLowerCase().includes(request.query.name.toLowerCase())
+        );
+    }
+
+    return h.response({
+        status: 'success',
+        data: {
+            books: filteredBooks.map(({ id, name, publisher }) => ({ id, name, publisher })),
+        },
+    }).code(200);
+};
 
 // Mendapatkan detail buku berdasarkan ID
 const getBookByIdHandler = (request, h) => {
